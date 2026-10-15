@@ -22,7 +22,7 @@ SkillManager gives you a visual interface to extend Claude's capabilities:
 ## Build & Run
 
 ```bash
-git clone https://github.com/anthropics-skills/SkillManager.git
+git clone https://github.com/km6rb6rnxh-dot/SkillManager.git
 cd SkillManager
 open -a Xcode Package.swift
 # Then press ⌘R to build and run
@@ -139,4 +139,4 @@ MIT
 
 ## Author
 
-Built by [Andrea Curti](https://github.com/anthropics-skills) with Claude.
+Built by [Andrea Curti](https://github.com/km6rb6rnxh-dot) with Claude.
