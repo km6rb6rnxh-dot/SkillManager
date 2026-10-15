@@ -11,6 +11,8 @@ class SkillListViewModel {
     var showFindSheet = false
     var errorMessage: String?
     var searchText = ""
+    var updatingSkillID: String?
+    var updateProgress: Double = 0
 
     private let registry: SkillRegistry
     private let github: GitHubService
@@ -109,6 +111,9 @@ class SkillListViewModel {
     }
 
     func checkForUpdates() async {
+        let log = InstallLogger.shared
+        log.step("Checking updates for \(skills.count) skill(s)...")
+
         isCheckingUpdates = true
 
         for i in skills.indices {
@@ -117,10 +122,25 @@ class SkillListViewModel {
 
         let results = await updateChecker.checkAll(skills: skills)
 
+        var updatesFound = 0
+        var errors = 0
         for i in skills.indices {
             if let status = results[skills[i].id] {
                 skills[i].updateStatus = status
+                if case .updateAvailable = status { updatesFound += 1 }
+                if case .error(let msg) = status {
+                    errors += 1
+                    log.error("Check failed for '\(skills[i].id)': \(msg)")
+                }
             }
+        }
+
+        if updatesFound > 0 {
+            log.log("\(updatesFound) update(s) available")
+        } else if errors == 0 {
+            log.success("All skills up to date")
+        } else {
+            log.log("\(errors) skill(s) could not be checked")
         }
 
         isCheckingUpdates = false
@@ -129,40 +149,51 @@ class SkillListViewModel {
     func updateSkill(_ skill: Skill) async {
         guard case .updateAvailable = skill.updateStatus else { return }
 
-        let parts = skill.entry.source.split(separator: "/")
-        guard parts.count == 2 else { return }
+        let log = InstallLogger.shared
+        log.step("Updating '\(skill.id)' from \(skill.entry.source)...")
+        log.log("Current hash: \(skill.entry.skillFolderHash.prefix(12))..., skillPath: \(skill.entry.skillPath)")
+
+        updatingSkillID = skill.id
+        updateProgress = 0
 
         do {
-            let tree = try await github.fetchTree(
-                owner: String(parts[0]),
-                repo: String(parts[1]),
-                ref: skill.entry.ref
-            )
-
-            let candidates = github.findSkillCandidates(in: tree)
-            guard let candidate = candidates.first(where: { $0.skillPath == skill.entry.skillPath }) else {
-                errorMessage = "Skill not found in remote repository"
-                return
+            let progressCallback: @Sendable (Double) -> Void = { [weak self] value in
+                Task { @MainActor in
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        self?.updateProgress = value
+                    }
+                }
             }
 
-            let _ = try await installer.update(
+            let _ = try await installer.updateFast(
                 skillName: skill.id,
-                candidate: candidate,
-                repoURL: skill.entry.sourceUrl,
-                ownerRepo: skill.entry.source,
-                ref: skill.entry.ref
+                skill: skill.entry,
+                progress: progressCallback
             )
+
+            withAnimation { updateProgress = 1.0 }
+            try? await Task.sleep(for: .milliseconds(300))
 
             await loadSkills()
         } catch {
+            log.error("Update failed for '\(skill.id)': \(error.localizedDescription)")
             errorMessage = error.localizedDescription
         }
+
+        updateProgress = 0
+        updatingSkillID = nil
     }
 
     func updateAll() async {
-        for skill in skillsWithUpdates {
+        let toUpdate = skillsWithUpdates
+        let log = InstallLogger.shared
+        log.step("Updating \(toUpdate.count) skill(s)...")
+
+        for skill in toUpdate {
             await updateSkill(skill)
         }
+
+        log.success("Update all complete")
     }
 
     func removeSkill(_ skill: Skill) async {

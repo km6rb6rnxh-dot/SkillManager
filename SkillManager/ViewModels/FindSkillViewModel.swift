@@ -7,6 +7,7 @@ class FindSkillViewModel {
     var state: FindState = .idle
     var results: [SkillSearchResult] = []
     var installingSkillID: String?
+    var installProgress: Double = 0
     var installSuccess: String?
     var errorMessage: String?
 
@@ -204,69 +205,95 @@ class FindSkillViewModel {
         guard let result = pendingInstall else { return }
         pendingInstall = nil
 
+        let log = InstallLogger.shared
+        log.step("Installing \(result.skillName) from \(result.repoFullName)...")
+        log.log("Type: \(result.repoType.rawValue), environments: \(installToCode ? "Code" : "")\(installToCode && installToCowork ? "+" : "")\(installToCowork ? "Cowork" : "")")
+
         installingSkillID = result.id
+        installProgress = 0
         installSuccess = nil
         errorMessage = nil
 
-        let repoURL = "https://github.com/\(result.repoFullName).git"
-
         do {
-            switch result.repoType {
-            case .skill:
-                try await installSkill(result, repoURL: repoURL)
-            case .resource:
-                try await installResource(result, repoURL: repoURL)
+            let progressCallback: @Sendable (Double) -> Void = { [weak self] value in
+                Task { @MainActor in
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        self?.installProgress = value
+                    }
+                }
             }
 
+            switch result.repoType {
+            case .skill:
+                try await installSkillFast(result, progress: progressCallback)
+            case .resource:
+                try await installResourceFast(result, progress: progressCallback)
+            }
+
+            withAnimation { installProgress = 1.0 }
+            try? await Task.sleep(for: .milliseconds(300))
+
+            log.success("'\(result.skillName)' installed successfully")
             installSuccess = result.skillName
             results.removeAll { $0.id == result.id }
         } catch {
+            log.error("Install failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
         }
 
+        installProgress = 0
         installingSkillID = nil
     }
 
-    private func installSkill(_ result: SkillSearchResult, repoURL: String) async throws {
+    private func installSkillFast(_ result: SkillSearchResult, progress: @escaping @Sendable (Double) -> Void) async throws {
+        let log = InstallLogger.shared
         let parts = result.repoFullName.split(separator: "/")
         guard parts.count == 2 else { throw SkillManagerError.invalidRepoIdentifier(result.repoFullName) }
 
+        log.step("Fetching repo tree for \(result.repoFullName)...")
         let github = makeGitHub()
         let tree = try await github.fetchTree(owner: String(parts[0]), repo: String(parts[1]))
         let candidates = github.findSkillCandidates(in: tree)
+        log.log("Found \(candidates.count) skill candidate(s), looking for '\(result.skillPath)'")
 
         guard let candidate = candidates.first(where: { $0.skillPath == result.skillPath }) else {
             throw SkillManagerError.skillNotFoundInRepo(result.skillName)
         }
 
-        let _ = try await installer.install(
+        log.step("Downloading tarball from GitHub...")
+        let _ = try await installer.installFast(
             candidate: candidate,
-            repoURL: repoURL,
-            ownerRepo: result.repoFullName
+            ownerRepo: result.repoFullName,
+            progress: progress
         )
 
-        // Adjust environments after install
         if !installToCode {
+            log.log("Removing Claude Code symlink (not selected)")
             try await installer.removeSymlink(for: candidate.name)
         }
         if !installToCowork {
+            log.log("Removing Cowork registration (not selected)")
             let cowork = CoworkRegistry()
             try? await cowork.unregisterSkill(name: candidate.name)
         }
     }
 
-    private func installResource(_ result: SkillSearchResult, repoURL: String) async throws {
+    private func installResourceFast(_ result: SkillSearchResult, progress: @escaping @Sendable (Double) -> Void) async throws {
+        let log = InstallLogger.shared
         let skillName = result.repoFullName.split(separator: "/").last
             .map(String.init) ?? result.skillName
 
-        let _ = try await installer.installResource(
-            repoURL: repoURL,
+        log.step("Downloading tarball for resource '\(skillName)'...")
+        log.log("Content files: \(result.contentFiles.joined(separator: ", "))")
+
+        let _ = try await installer.installResourceFast(
             ownerRepo: result.repoFullName,
             skillName: skillName,
             description: result.skillDescription,
             contentFiles: result.contentFiles,
             toCode: installToCode,
-            toCowork: installToCowork
+            toCowork: installToCowork,
+            progress: progress
         )
     }
 }

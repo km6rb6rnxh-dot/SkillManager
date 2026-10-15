@@ -2,6 +2,12 @@
 
 A native macOS app to discover, install and manage [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Cowork](https://docs.anthropic.com/en/docs/claude-code/cowork) skills — no terminal required.
 
+<div align="center">
+
+https://github.com/km6rb6rnxh-dot/SkillManager/raw/main/demo.mp4
+
+</div>
+
 ## What it does
 
 SkillManager gives you a visual interface to extend Claude's capabilities:
@@ -48,8 +54,8 @@ SkillManager reads and writes the same files Claude Code uses:
 
 When you install a skill, SkillManager:
 
-1. Clones the GitHub repo (shallow, depth 1)
-2. Copies the skill folder to `~/.agents/skills/`
+1. Downloads a compressed tarball from GitHub (faster than cloning)
+2. Extracts and copies the skill folder to `~/.agents/skills/`
 3. Creates a symlink in `~/.claude/skills/` (for Claude Code)
 4. Registers the skill in `cowork.json` (for Cowork)
 5. Records metadata in `.skill-lock.json` for update tracking
@@ -71,6 +77,10 @@ Each skill can be active in Claude Code, Cowork, or both. Toggle environments fr
 ### Update Checking
 
 SkillManager compares the installed skill's tree SHA against the latest on GitHub. When a new version is detected, an orange badge appears and you can update individually or all at once.
+
+### Install Log
+
+Every install and update action is logged with timestamps and severity levels. Open Settings → Log to see the full history, diagnose failures, or export the log as a text file.
 
 ### Themes
 
@@ -112,7 +122,8 @@ SkillManager/
     │   ├── SkillInstaller.swift     # Install/update/remove
     │   ├── CoworkRegistry.swift     # Cowork config management
     │   ├── UpdateChecker.swift      # Version comparison
-    │   └── FrontmatterParser.swift  # YAML frontmatter parsing
+    │   ├── FrontmatterParser.swift  # YAML frontmatter parsing
+    │   └── InstallLogger.swift      # Install/update activity log
     ├── ViewModels/
     │   ├── SkillListViewModel.swift # Main list logic
     │   ├── AddSkillViewModel.swift  # Direct repo install

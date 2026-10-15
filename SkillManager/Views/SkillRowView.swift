@@ -3,6 +3,8 @@ import SwiftUI
 struct SkillRowView: View {
     let skill: Skill
     var isSelected: Bool = false
+    var isUpdating: Bool = false
+    var updateProgress: Double = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -15,7 +17,12 @@ struct SkillRowView: View {
                     .fontWeight(.semibold)
                     .lineLimit(1)
 
-                updateBadge
+                if isUpdating {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    updateBadge
+                }
 
                 Spacer(minLength: 4)
 
@@ -37,6 +44,16 @@ struct SkillRowView: View {
             .font(.caption)
         }
         .padding(.vertical, 3)
+        .overlay(alignment: .bottom) {
+            if isUpdating && updateProgress > 0 {
+                GeometryReader { geo in
+                    AppTheme.successGreen
+                        .frame(width: geo.size.width * updateProgress, height: 2.5)
+                        .clipShape(Capsule())
+                }
+                .frame(height: 2.5)
+            }
+        }
     }
 
     @ViewBuilder

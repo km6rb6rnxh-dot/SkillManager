@@ -160,7 +160,12 @@ struct SkillListPanel: View {
             Divider()
 
             List(viewModel.filteredSkills, selection: $vm.selectedSkillID) { skill in
-                SkillRowView(skill: skill, isSelected: viewModel.selectedSkillID == skill.id)
+                SkillRowView(
+                    skill: skill,
+                    isSelected: viewModel.selectedSkillID == skill.id,
+                    isUpdating: viewModel.updatingSkillID == skill.id,
+                    updateProgress: viewModel.updatingSkillID == skill.id ? viewModel.updateProgress : 0
+                )
                     .tag(skill.id)
                     .listRowSeparator(.visible)
                     .contextMenu {

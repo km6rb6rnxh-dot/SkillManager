@@ -168,6 +168,7 @@ struct FindSkillSheet: View {
                         SearchResultRow(
                             result: result,
                             isInstalling: viewModel.installingSkillID == result.id,
+                            installProgress: viewModel.installingSkillID == result.id ? viewModel.installProgress : 0,
                             isPendingInstall: viewModel.pendingInstall?.id == result.id,
                             installToCode: $viewModel.installToCode,
                             installToCowork: $viewModel.installToCowork,
@@ -258,6 +259,7 @@ extension FindSkillSheet {
 struct SearchResultRow: View {
     let result: SkillSearchResult
     let isInstalling: Bool
+    let installProgress: Double
     let isPendingInstall: Bool
     @Binding var installToCode: Bool
     @Binding var installToCowork: Bool
@@ -321,6 +323,16 @@ struct SearchResultRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
         )
+        .overlay(alignment: .bottom) {
+            if isInstalling && installProgress > 0 {
+                GeometryReader { geo in
+                    AppTheme.successGreen
+                        .frame(width: geo.size.width * installProgress, height: 2.5)
+                        .clipShape(Capsule())
+                }
+                .frame(height: 2.5)
+            }
+        }
         .onHover { isHovered = $0 }
         .contentShape(Rectangle())
     }

@@ -184,6 +184,23 @@ actor GitHubService {
         return (parts[0], parts[1])
     }
 
+    func downloadTarball(owner: String, repo: String, ref: String? = nil) async throws -> URL {
+        let branch = ref ?? "HEAD"
+        var request = makeRequest(path: "/repos/\(owner)/\(repo)/tarball/\(branch)")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+        let (tempURL, response) = try await session.download(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<400).contains(http.statusCode) else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw SkillManagerError.apiError(statusCode: statusCode, message: "Tarball download failed")
+        }
+
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".tar.gz")
+        try FileManager.default.moveItem(at: tempURL, to: dest)
+        return dest
+    }
+
     private func checkResponse(_ response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
 
