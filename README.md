@@ -41,6 +41,25 @@ swift build
 open .build/debug/SkillManager.app
 ```
 
+To create a standalone `.app` bundle:
+
+```bash
+./build-app.sh
+open build/SkillManager.app
+```
+
+### macOS Gatekeeper
+
+Since the app is not notarized with Apple, macOS may block it on first launch with a message like *"SkillManager can't be opened because Apple cannot check it for malicious software."*
+
+To open it, **right-click** (or Ctrl+click) the app and choose **Open**, then confirm in the dialog. You only need to do this once — after that the app opens normally.
+
+Alternatively, remove the quarantine attribute from the terminal:
+
+```bash
+xattr -cr build/SkillManager.app
+```
+
 ## How it works
 
 SkillManager reads and writes the same files Claude Code uses:

@@ -8,6 +8,7 @@ let package = Package(
         .executableTarget(
             name: "SkillManager",
             path: "SkillManager",
+            exclude: ["Resources"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]
